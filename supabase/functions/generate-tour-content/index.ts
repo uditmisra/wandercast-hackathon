@@ -9,6 +9,7 @@ const corsHeaders = {
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
+const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
@@ -961,18 +962,93 @@ async function callClaude(systemPrompt: string, userPrompt: string): Promise<Con
 }
 
 // ============================================================
-// MULTI-SOURCE WEB CONTEXT FETCHING (Wikipedia + Wikivoyage)
+// MULTI-SOURCE WEB CONTEXT FETCHING (Firecrawl → Wikipedia fallback)
 // ============================================================
 
-async function fetchWebContext(placeName: string, city: string): Promise<{ context: string; sourceCount: number } | null> {
-  console.log(`Web context fetch: ${placeName} (${city})`);
+async function fetchViaFirecrawl(placeName: string, city: string): Promise<{ context: string; sourceCount: number } | null> {
+  if (!firecrawlApiKey) {
+    console.log('Firecrawl: No API key configured, skipping');
+    return null;
+  }
 
-  // Source 1: Wikipedia summary (search-first with city for disambiguation)
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 8000);
+
+  try {
+    const query = city ? `${placeName} ${city} history culture travel guide` : `${placeName} history culture travel`;
+    const body: Record<string, unknown> = {
+      query,
+      limit: 5,
+      scrapeOptions: { formats: ['markdown'] },
+    };
+    if (city) {
+      body.location = city;
+    }
+
+    console.log(`Firecrawl search: "${query}"`);
+    const response = await fetch('https://api.firecrawl.dev/v1/search', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${firecrawlApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+
+    if (!response.ok) {
+      console.error(`Firecrawl API error: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    const results = (data.data || []).filter((r: any) => r.markdown && r.markdown.length > 50);
+
+    if (results.length === 0) {
+      console.log('Firecrawl: No usable results');
+      return null;
+    }
+
+    const sections: string[] = [];
+    for (let i = 0; i < Math.min(3, results.length); i++) {
+      const r = results[i];
+      const title = r.title || r.metadata?.title || 'Untitled';
+      const url = r.url || r.metadata?.sourceURL || '';
+      sections.push(`=== FIRECRAWL: ${title} (${url}) ===\n${r.markdown.substring(0, 1500)}`);
+    }
+
+    const context = sections.join('\n\n');
+    console.log(`Firecrawl: ${results.length} results, ${context.length} total chars`);
+
+    // Fire-and-forget usage logging
+    try {
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      await supabase.from('api_usage_log').insert({
+        service: 'firecrawl',
+        function_name: 'generate-tour-content',
+        characters_used: context.length,
+        estimated_cost_usd: 0.001 * Math.min(3, results.length),
+        status: 'success',
+        metadata: { query, resultCount: results.length, place: placeName, city },
+      });
+    } catch { /* non-fatal */ }
+
+    return { context, sourceCount: Math.min(3, results.length) };
+  } catch (err) {
+    console.error('Firecrawl fetch error:', err);
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+async function fetchViaWikipedia(placeName: string, city: string): Promise<{ context: string; sourceCount: number } | null> {
+  console.log(`Wikipedia fallback for: ${placeName} (${city})`);
+
   async function fetchWikipediaSummary(): Promise<string | null> {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 4000);
     try {
-      // Always search with city to avoid disambiguation issues (e.g., "Hyde Park London" not just "Hyde Park")
       const searchQuery = encodeURIComponent(city ? `${placeName} ${city}` : placeName);
       const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${searchQuery}&format=json&srlimit=1`;
       const resp = await fetch(searchUrl, { signal: ctrl.signal });
@@ -992,12 +1068,10 @@ async function fetchWebContext(placeName: string, city: string): Promise<{ conte
     } catch { return null; } finally { clearTimeout(t); }
   }
 
-  // Source 2: Wikivoyage (traveler perspective — city-centric, since Wikivoyage organizes by city)
   async function fetchWikivoyage(): Promise<string | null> {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 4000);
     try {
-      // Wikivoyage is city-centric — use city page for reliable context
       if (!city) return null;
       const cityTitle = encodeURIComponent(city);
       const resp = await fetch(`https://en.wikivoyage.org/api/rest_v1/page/summary/${cityTitle}`, { signal: ctrl.signal });
@@ -1012,12 +1086,10 @@ async function fetchWebContext(placeName: string, city: string): Promise<{ conte
     } catch { return null; } finally { clearTimeout(t); }
   }
 
-  // Source 3: Wikipedia extended extract (search-first to resolve correct article title)
   async function fetchWikipediaExtended(): Promise<string | null> {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 4000);
     try {
-      // Resolve correct article title via search with city (avoids disambiguation)
       const searchQuery = encodeURIComponent(city ? `${placeName} ${city}` : placeName);
       const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${searchQuery}&format=json&srlimit=1`;
       const searchResp = await fetch(searchUrl, { signal: ctrl.signal });
@@ -1026,7 +1098,6 @@ async function fetchWebContext(placeName: string, city: string): Promise<{ conte
       const results = searchData.query?.search;
       if (!results || results.length === 0) return null;
       const resolvedTitle = encodeURIComponent(results[0].title);
-
       const url = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=true&titles=${resolvedTitle}&format=json`;
       const resp = await fetch(url, { signal: ctrl.signal });
       if (!resp.ok) return null;
@@ -1044,7 +1115,6 @@ async function fetchWebContext(placeName: string, city: string): Promise<{ conte
     } catch { return null; } finally { clearTimeout(t); }
   }
 
-  // Fetch all 3 sources in parallel
   const [wikiResult, voyageResult, extendedResult] = await Promise.allSettled([
     fetchWikipediaSummary(),
     fetchWikivoyage(),
@@ -1058,27 +1128,30 @@ async function fetchWebContext(placeName: string, city: string): Promise<{ conte
   let sourceCount = 0;
   const sections: string[] = [];
 
-  if (wikiText) {
-    sections.push(`=== WIKIPEDIA ===\n${wikiText}`);
-    sourceCount++;
-  }
-  if (voyageText) {
-    sections.push(`=== WIKIVOYAGE (traveler perspective) ===\n${voyageText}`);
-    sourceCount++;
-  }
-  if (extendedText) {
-    sections.push(`=== WIKIPEDIA (extended) ===\n${extendedText}`);
-    sourceCount++;
-  }
+  if (wikiText) { sections.push(`=== WIKIPEDIA ===\n${wikiText}`); sourceCount++; }
+  if (voyageText) { sections.push(`=== WIKIVOYAGE (traveler perspective) ===\n${voyageText}`); sourceCount++; }
+  if (extendedText) { sections.push(`=== WIKIPEDIA (extended) ===\n${extendedText}`); sourceCount++; }
 
   if (sections.length === 0) {
-    console.log('All web sources failed');
+    console.log('All Wikipedia sources failed');
     return null;
   }
 
   const context = sections.join('\n\n');
-  console.log(`Web context: ${sourceCount} sources, ${context.length} total chars`);
+  console.log(`Wikipedia context: ${sourceCount} sources, ${context.length} total chars`);
   return { context, sourceCount };
+}
+
+async function fetchWebContext(placeName: string, city: string): Promise<{ context: string; sourceCount: number } | null> {
+  console.log(`Web context fetch: ${placeName} (${city})`);
+
+  // Try Firecrawl first (richer, real-time web data)
+  const firecrawlResult = await fetchViaFirecrawl(placeName, city);
+  if (firecrawlResult) return firecrawlResult;
+
+  // Fall back to Wikipedia + Wikivoyage
+  console.log('Firecrawl unavailable or returned no results, falling back to Wikipedia...');
+  return await fetchViaWikipedia(placeName, city);
 }
 
 // ============================================================

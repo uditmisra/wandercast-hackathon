@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, SkipBack, Eye, Search, Check, ArrowRight, Sparkles, MessageCircle, BookOpen, ChevronDown } from 'lucide-react';
+import { Play, SkipBack, Eye, Search, Check, ArrowRight, Sparkles, MessageCircle, BookOpen, ChevronDown, Mic } from 'lucide-react';
 import { WaveformVisualizer } from '@/components/player/WaveformVisualizer';
 import { Slider } from '@/components/ui/slider';
 import { Place } from '@/types/tour';
@@ -28,6 +28,7 @@ interface MinimalAudioPlayerProps {
   onSeek: (value: number[]) => void;
   onQuestionAsked: () => void;
   onStoryFeedback?: (storyType: string, direction: 'more' | 'less') => void;
+  onTalkToGuide?: () => void;
 }
 
 const AUDIO_PHRASES = [
@@ -97,6 +98,7 @@ export function MinimalAudioPlayer({
   onPrevious,
   onSeek,
   onQuestionAsked,
+  onTalkToGuide,
 }: MinimalAudioPlayerProps) {
   const [expandedPill, setExpandedPill] = useState<PillType | null>(null);
   const [foundChallenge, setFoundChallenge] = useState(false);
@@ -305,6 +307,16 @@ export function MinimalAudioPlayer({
                 <span className="text-[10px] opacity-60">{remainingQuestions}</span>
               )}
             </button>
+
+            {onTalkToGuide && (
+              <button
+                onClick={onTalkToGuide}
+                className="flex items-center gap-1.5 text-xs font-medium px-4 py-2.5 min-h-[44px] rounded-full border transition-all duration-150 active:scale-95 bg-violet-500/20 text-violet-300 border-violet-500/30 hover:bg-violet-500/30 hover:border-violet-500/40"
+              >
+                <Mic className="w-3.5 h-3.5" />
+                Talk
+              </button>
+            )}
           </div>
         )}
 
