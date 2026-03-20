@@ -1,0 +1,50 @@
+{
+  "_documentation": {
+    "description": "Template for importing city content into Whisper audio tours",
+    "usage": "Fill in city, places, and stories, then POST to /functions/v1/import-city-data",
+    "validation": "Set validate_only: true to test without importing",
+    "narration_length": "400-700 characters (creates ~30-45 second audio)",
+    "valid_tones": ["casual", "scholarly", "dramatic", "witty"],
+    "common_interests": ["history", "architecture", "food", "art", "culture", "music", "literature", "science", "local-life", "photography", "myths", "politics", "theatre", "engineering", "design", "nature"]
+  },
+
+  "city": {
+    "slug": "edinburgh",
+    "name": "Edinburgh",
+    "country": "United Kingdom"
+  },
+
+  "places": [
+    {
+      "place_id": "edinburgh_castle",
+      "name": "Edinburgh Castle",
+      "lat": 55.9486,
+      "lng": -3.1999,
+      "trigger_radius_m": 150,
+      "category": "landmark",
+      "must_see": true,
+      "neighborhood": "Old Town"
+    }
+  ],
+
+  "stories": [
+    {
+      "place_id": "edinburgh_castle",
+      "interests": ["history", "architecture"],
+      "tone": "scholarly",
+      "hook": "Built on an extinct volcano, fortified for over 3,000 years.",
+      "directional_cue": "Look up at the volcanic rock face - notice how the castle seems to grow directly from the stone.",
+      "audio_narration": "Edinburgh Castle sits on Castle Rock, a volcanic plug thats been a strategic stronghold for over three thousand years. The rock itself is harder than the surrounding land, which is why it survived when glaciers carved out the valleys on either side. Look up at the volcanic rock face - notice how the castle seems to grow directly from the stone. Thats not an accident. Every generation that fortified this spot understood the same thing: geology is destiny. The castle you see today is mostly from the 16th and 17th centuries, but beneath it are layers of history going back to the Iron Age. When you walk up that Royal Mile, youre following the same ridge that defenders have watched over for millennia."
+    },
+    {
+      "place_id": "edinburgh_castle",
+      "interests": ["myths", "local-life"],
+      "tone": "casual",
+      "hook": "The One O'Clock Gun has fired every day (except Sundays) since 1861.",
+      "directional_cue": "If its close to 1pm, find a spot with a view of the castle and wait - youll hear it before you see it.",
+      "audio_narration": "Heres a local quirk that catches every tourist off guard: every day at 1pm, except Sundays and certain holidays, the castle fires a cannon. The One OClock Gun has been Edinburghs unofficial lunch bell since 1861. Originally it was a time signal for ships in the Firth of Forth to set their chronometers. Now its mostly tradition and a great way to startle anyone whos forgotten about it. If youre near the castle around 1pm, find a spot with a view and wait. Youll hear it before you see the smoke. Watch the pigeons scatter, watch the locals check their watches, and enjoy the slightly smug feeling of being in on the joke. Its one of those small rituals that makes a city feel alive."
+    }
+  ],
+
+  "validate_only": false
+}

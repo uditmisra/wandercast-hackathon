@@ -1,0 +1,308 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ═══ LIGHT MODE ═══ */
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 7%;
+
+    --card: 0 0% 97%;
+    --card-foreground: 0 0% 7%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 7%;
+
+    /* Vibrant pink primary — #C41564 dark enough for white bg (5.8:1) */
+    --primary: 333 80% 43%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 95%;
+    --secondary-foreground: 0 0% 15%;
+
+    --muted: 0 0% 95%;
+    --muted-foreground: 0 0% 40%;
+
+    --accent: 0 0% 95%;
+    --accent-foreground: 0 0% 15%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 333 80% 43%;
+
+    /* Accent color system — hex values for inline styles */
+    --accent-pink: #C41564;
+    --accent-pink-rgb: 196, 21, 100;
+    --accent-orange: #A08030;
+    --accent-orange-rgb: 160, 128, 48;
+    --gradient-orb: radial-gradient(circle at 30% 30%, #C41564, #D9447A, #E87BA0);
+    --gradient-orb-linear: linear-gradient(135deg, #C41564 0%, #D9447A 50%, #E87BA0 100%);
+
+    /* Surface colors for inline styles */
+    --surface-elevated: #f7f7f7;
+    --surface-overlay: rgba(0, 0, 0, 0.04);
+    --text-primary: #111;
+    --text-secondary: #666;
+    --text-tertiary: #999;
+    --border-subtle: rgba(0, 0, 0, 0.08);
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 97%;
+    --sidebar-foreground: 0 0% 20%;
+    --sidebar-primary: 333 80% 43%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 95%;
+    --sidebar-accent-foreground: 0 0% 15%;
+    --sidebar-border: 0 0% 90%;
+    --sidebar-ring: 333 80% 43%;
+  }
+
+  /* ═══ DARK MODE ═══ */
+  .dark {
+    --background: 0 0% 4%;
+    --foreground: 0 0% 90%;
+
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 90%;
+
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 90%;
+
+    /* Vibrant hot pink primary — #FF2D78 (5.5:1 on dark bg) */
+    --primary: 340 100% 59%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 0 0% 84%;
+
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 55%;
+
+    --accent: 0 0% 14%;
+    --accent-foreground: 0 0% 90%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 22%;
+    --input: 0 0% 22%;
+    --ring: 340 100% 59%;
+
+    /* Accent color system — hex values for inline styles */
+    --accent-pink: #FF2D78;
+    --accent-pink-rgb: 255, 45, 120;
+    --accent-orange: #D4A843;
+    --accent-orange-rgb: 212, 168, 67;
+    --gradient-orb: radial-gradient(circle at 30% 30%, #FF2D78, #FF6B9D, #FF9EBF);
+    --gradient-orb-linear: linear-gradient(135deg, #FF2D78 0%, #FF6B9D 50%, #FF9EBF 100%);
+
+    /* Surface colors for inline styles */
+    --surface-elevated: #1a1a1a;
+    --surface-overlay: rgba(255, 255, 255, 0.04);
+    --text-primary: #e6e6e6;
+    --text-secondary: #999;
+    --text-tertiary: #666;
+    --border-subtle: rgba(255, 255, 255, 0.08);
+
+    --sidebar-background: 0 0% 7%;
+    --sidebar-foreground: 0 0% 80%;
+    --sidebar-primary: 340 100% 59%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 12%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 340 100% 59%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    touch-action: manipulation;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    overscroll-behavior-y: contain;
+  }
+
+  /* Touch optimization */
+  button, a, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+}
+
+@layer utilities {
+  /* Display font */
+  .font-display {
+    font-family: 'DM Serif Display', Georgia, 'Times New Roman', serif;
+  }
+
+  /* Section header label */
+  .section-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 8px;
+    display: block;
+  }
+
+  /* Gradient orb background */
+  .gradient-orb {
+    background: var(--gradient-orb);
+  }
+
+  .gradient-orb-linear {
+    background: var(--gradient-orb-linear);
+  }
+
+  /* Corner glow effect — uses pink accent */
+  .corner-glow {
+    position: relative;
+  }
+  .corner-glow::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(140px 120px at 26px calc(100% - 26px),
+      rgba(var(--accent-pink-rgb), 0.45) 0%,
+      rgba(var(--accent-pink-rgb), 0.20) 45%,
+      transparent 72%);
+    pointer-events: none;
+    border-radius: inherit;
+  }
+
+  /* Light panel surface for content emphasis */
+  .panel-surface {
+    background: var(--surface-elevated);
+    color: var(--text-primary);
+  }
+
+  /* Corner glow — small variant */
+  .corner-glow-sm {
+    position: relative;
+  }
+  .corner-glow-sm::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(80px 70px at 20px calc(100% - 20px),
+      rgba(var(--accent-pink-rgb), 0.30) 0%,
+      rgba(var(--accent-pink-rgb), 0.12) 45%,
+      transparent 72%);
+    pointer-events: none;
+    border-radius: inherit;
+  }
+
+  /* Corner glow — orange variant */
+  .corner-glow-orange {
+    position: relative;
+  }
+  .corner-glow-orange::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(140px 120px at 26px calc(100% - 26px),
+      rgba(var(--accent-orange-rgb), 0.40) 0%,
+      rgba(var(--accent-orange-rgb), 0.18) 45%,
+      transparent 72%);
+    pointer-events: none;
+    border-radius: inherit;
+  }
+
+  /* Photo border utility */
+  .photo-border {
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  /* Safe area support */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* Scroll snap for carousels */
+  .scroll-snap-x {
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+  .snap-start {
+    scroll-snap-align: start;
+  }
+
+  /* Skeleton shimmer — adapts to theme */
+  .skeleton {
+    background: linear-gradient(90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--border)) 50%,
+      hsl(var(--muted)) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: 8px;
+  }
+
+  /* Scroll fade indicators */
+  .scroll-fade-r {
+    mask-image: linear-gradient(to right, black 85%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  }
+
+  /* Hide scrollbar but keep scrolling */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Mapbox popup overrides — theme-aware */
+.home-map-popup .mapboxgl-popup-content {
+  background: var(--surface-elevated);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  padding: 12px 14px;
+  color: var(--text-primary);
+}
+.dark .home-map-popup .mapboxgl-popup-content {
+  background: rgba(26, 26, 26, 0.95);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.home-map-popup .mapboxgl-popup-tip {
+  border-top-color: var(--surface-elevated);
+}
+.dark .home-map-popup .mapboxgl-popup-tip {
+  border-top-color: rgba(26, 26, 26, 0.95);
+}
+
+/* Respect motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
