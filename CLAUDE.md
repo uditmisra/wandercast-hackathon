@@ -14,26 +14,34 @@ npm test                      # Run tests (vitest)
 
 ## Tech Stack
 
-- **Frontend**: React 18 + TypeScript, Vite 5 (code-split), TailwindCSS, shadcn/ui, React Router v6, React Query v5
+- **Frontend**: React 18 + TypeScript, Vite 5 (code-split), TailwindCSS, shadcn/ui, React Router v6, React Query v5, `@11labs/react` v0.2.0 (Conversational AI)
 - **Backend**: Supabase (PostgreSQL + Edge Functions on Deno runtime + Auth)
-- **AI**: Anthropic Claude Sonnet 4.6 (content gen Tier 1+2), Claude Sonnet 4.6 (tour parsing), GPT-5.2 (content Tier 3 fallback + Q&A), Whisper (STT), ElevenLabs TTS (voice `EST9Ui6982FZPSi7gCHi`)
+- **AI**: Anthropic Claude Sonnet 4.6 (content gen Tier 1+2), Claude Sonnet 4.6 (tour parsing), GPT-5.2 (content Tier 3 fallback + Q&A), Whisper (STT), ElevenLabs TTS (voice `EST9Ui6982FZPSi7gCHi`), ElevenLabs Conversational AI (voice agent)
+- **Web Search**: Firecrawl Search API (primary web context), Wikipedia/Wikivoyage (fallback)
 - **Maps**: Mapbox Standard style (night preset), Mapbox Geocoding, Mapbox Directions API (walking)
 - **Deployment**: Lovable (frontend), Supabase Cloud (backend)
+
+## Local Development
+
+This app was built on Lovable. To run locally:
+1. `npm install`
+2. Copy `.env.production` → `.env.local` (Vite dev mode ignores `.env.production`)
+3. `npm run dev` → http://localhost:8080
 
 ## Project Structure
 
 ```
 src/
 ├── pages/          Index.tsx (orchestrator), ChatHomePage, ExplorePage, BuildTourPage, Dashboard, AdminDashboard, Auth, SharedTourPage
-├── components/     EnhancedAudioGuide, MinimalAudioPlayer, map/HomeMapView, map/ExploreMapView, map/PoiBottomSheet, chat/*, dashboard/*, admin/*, auth/AuthWallModal, layout/*
-├── hooks/          useTourChatEngine, useTours, useBookmarks, useTourProgress, useDashboardStats, useSuggestions, useUserPreferences, useGeolocation, useStoryLibrary, useTourBuilder, useAdminData
+├── components/     EnhancedAudioGuide, MinimalAudioPlayer, VoiceAgentPanel, VoiceAgentWrapper, map/HomeMapView, map/ExploreMapView, map/PoiBottomSheet, chat/*, dashboard/*, admin/*, auth/AuthWallModal, layout/*
+├── hooks/          useTourChatEngine, useVoiceAgent, useTours, useBookmarks, useTourProgress, useDashboardStats, useSuggestions, useUserPreferences, useGeolocation, useStoryLibrary, useTourBuilder, useAdminData
 ├── contexts/       AuthContext (useAuth hook)
 ├── utils/          tourAssembly, collections, contentCache, rateLimiter
 ├── types/          tour.ts (TourPlan, Place, Interest), library.ts (CityPlaceWithStories, CityData)
 └── integrations/   supabase/client.ts
 
 supabase/
-├── functions/      18 edge functions (see below)
+├── functions/      20 edge functions (see below)
 └── migrations/     SQL migrations
 ```
 
@@ -42,7 +50,9 @@ supabase/
 | Function | Purpose | AI Model | Auth |
 |----------|---------|----------|------|
 | `parse-tour-request` | Chat → structured tour plan with places, interests, neighbourhood | Claude Sonnet 4.6 | No |
-| `generate-tour-content` | 4-tier RAG pipeline with content relevance validation | Claude Sonnet 4.6 + GPT-5.2 | No |
+| `generate-tour-content` | 4-tier RAG pipeline — Firecrawl Search primary, Wikipedia fallback | Claude Sonnet 4.6 + GPT-5.2 | No |
+| `firecrawl-search` | Standalone Firecrawl Search (also used as ElevenAgents tool webhook) | — | No |
+| `get-agent-signed-url` | Builds per-place voice agent context (Firecrawl + guide personality), returns system prompt + first message | — | No |
 | `generate-audio` | ElevenLabs TTS (voice EST9Ui6982FZPSi7gCHi) | — | No |
 | `save-tour` | Persist tour + places + generated_content JSONB + interests | — | Yes |
 | `get-tours` | User's tours with places + favorite status + progress | — | Yes |
@@ -113,7 +123,7 @@ Each tier validates content relevance before accepting — `contentMatchesPlace(
 1. **Step 0**: Check `generated_place_content` cache (keyed on normalized place+city+tone). Validates before reuse; deletes mismatches.
 2. **Tier 1**: Curated stories + Claude Sonnet 4.6 (personalized narration, fun facts, challenges)
 3. **Tier 1.5**: Curated story verbatim (if Claude fails)
-4. **Tier 2**: Multi-source web context (Wikipedia + Wikivoyage + extended) + Claude. Web context validated before feeding to LLM. Cached 7 days.
+4. **Tier 2**: Multi-source web context + Claude. **Firecrawl Search** is the primary source (richer, real-time). Wikipedia + Wikivoyage is the fallback if Firecrawl fails or returns 0 results. Web context validated before feeding to LLM. Cached 7 days.
 5. **Tier 3**: GPT-5.2 fallback (uses `max_completion_tokens`, not `max_tokens`)
 6. **Tier 4**: Static template text (generic, uses place.name)
 
@@ -131,6 +141,41 @@ Content validation (`contentMatchesPlace`):
 - Bad cache entries auto-purged when validation fails
 
 Content caching: `generated_place_content` table caches LLM output keyed on `place_name_normalized|city_normalized|tone`. Only caches content that passes relevance validation.
+
+### Voice Agent (ElevenLabs Conversational AI) — Hackathon Addition
+
+Real-time two-way voice conversation with the tour guide, powered by ElevenLabs Conversational AI + Firecrawl Search.
+
+**Architecture**: Client-side `@11labs/react` `useConversation` hook connects directly to ElevenLabs agent. System prompt + first message are built server-side via `get-agent-signed-url` edge function, which fetches fresh Firecrawl context about the current place and injects guide personality.
+
+**Agent**: `agent_4501km70w8mgff4sx96kj5bd83pv` (created in ElevenLabs dashboard)
+- Voice: `EST9Ui6982FZPSi7gCHi` (same as TTS narration)
+- Server-side tool: `search_web` → `firecrawl-search` edge function (for mid-conversation web lookups)
+
+**Flow**:
+1. User taps "Talk to Guide" pill in `MinimalAudioPlayer`
+2. `EnhancedAudioGuide` sets `showVoiceAgent=true` → lazy-loads `VoiceAgentWrapper`
+3. `VoiceAgentWrapper` mounts → `useVoiceAgent.startConversation()`:
+   a. Request microphone permission
+   b. Call `get-agent-signed-url` edge function (fetches Firecrawl context, builds system prompt with guide personality + place knowledge + web context, returns prompt + first message + guide name)
+   c. Call `conversation.startSession({ agentId, overrides: { agent: { prompt, firstMessage } } })`
+4. Agent greets user in character (Max/Dr. Eleanor/Marco/Sophie based on tone)
+5. `VoiceAgentPanel` renders full-screen overlay with animated orb (driven by audio frequency data)
+6. Narration audio is paused while voice agent is active
+7. User taps "End conversation" → `endSession()` → panel dismisses
+
+**Key files**:
+- `src/hooks/useVoiceAgent.ts` — wraps `useConversation`, manages mic + edge function call + error states
+- `src/components/VoiceAgentPanel.tsx` — full-screen dark overlay with animated orb, status, end button
+- `src/components/VoiceAgentWrapper.tsx` — lazy-load wrapper (isolates `@11labs/react` SDK from main player bundle)
+- `supabase/functions/get-agent-signed-url/index.ts` — builds per-place agent context with Firecrawl + guide personality
+- `supabase/functions/firecrawl-search/index.ts` — standalone Firecrawl search (also agent tool webhook)
+
+**Guide personalities** (reused from `interactive-guide-conversation`):
+- casual → Max: warm, conversational, like a smart friend
+- scholarly → Dr. Eleanor: deeply knowledgeable, rich specific detail
+- dramatic → Marco: atmospheric, cinematic, sensory
+- witty → Sophie: sharp, dry, playful, finds absurdity
 
 ### Neighbourhood-Level "Near Me" Tours
 
@@ -340,6 +385,8 @@ supabase db push
 supabase secrets set OPENAI_API_KEY=sk-...
 supabase secrets set ELEVENLABS_API_KEY=...
 supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+supabase secrets set FIRECRAWL_API_KEY=fc-...        # Firecrawl Search (hackathon code: ELEVENHACKS for 10k credits)
+supabase secrets set ELEVENLABS_AGENT_ID=agent_...   # ElevenLabs Conversational AI agent ID
 ```
 
 ## Gotchas
