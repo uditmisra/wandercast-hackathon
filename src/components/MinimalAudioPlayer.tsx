@@ -308,15 +308,13 @@ export function MinimalAudioPlayer({
               )}
             </button>
 
-            {onTalkToGuide && (
-              <button
-                onClick={onTalkToGuide}
-                className="flex items-center gap-1.5 text-xs font-medium px-4 py-2.5 min-h-[44px] rounded-full border transition-all duration-150 active:scale-95 bg-violet-500/20 text-violet-300 border-violet-500/30 hover:bg-violet-500/30 hover:border-violet-500/40"
-              >
-                <Mic className="w-3.5 h-3.5" />
-                Talk
-              </button>
-            )}
+            <button
+              onClick={() => onTalkToGuide?.()}
+              className="flex items-center gap-1.5 text-xs font-medium px-4 py-2.5 min-h-[44px] rounded-full border transition-all duration-150 active:scale-95 bg-violet-500/20 text-violet-300 border-violet-500/30 hover:bg-violet-500/30 hover:border-violet-500/40"
+            >
+              <Mic className="w-3.5 h-3.5" />
+              Talk to Guide
+            </button>
           </div>
         )}
 

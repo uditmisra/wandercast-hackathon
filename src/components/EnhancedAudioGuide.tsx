@@ -6,8 +6,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookmarks } from '@/hooks/useBookmarks';
 import { MinimalAudioPlayer } from './MinimalAudioPlayer';
-import { VoiceAgentPanel } from './VoiceAgentPanel';
-import { useVoiceAgent } from '@/hooks/useVoiceAgent';
+import React from 'react';
+const VoiceAgentWrapper = React.lazy(() => import('./VoiceAgentWrapper').then(m => ({ default: m.VoiceAgentWrapper })));
 import { MapView } from './map/MapView';
 import { useNavigate } from 'react-router-dom';
 import { useTourProgress } from '@/hooks/useTourProgress';
@@ -62,18 +62,6 @@ export function EnhancedAudioGuide({ tour, initialStopIndex = 0, onBack, enrichm
 
   // ── Voice agent (ElevenLabs Conversational AI) ──
   const [showVoiceAgent, setShowVoiceAgent] = useState(false);
-  const voiceAgent = useVoiceAgent({
-    onStart: () => {
-      // Pause narration audio when voice agent connects
-      if (audioRef.current) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      }
-    },
-    onEnd: () => {
-      setShowVoiceAgent(false);
-    },
-  });
 
   /** Returns true if navigation is blocked (auth required) */
   const requireAuth = (targetIndex: number): boolean => {
@@ -706,34 +694,27 @@ export function EnhancedAudioGuide({ tour, initialStopIndex = 0, onBack, enrichm
               onSeek={handleSeek}
               onQuestionAsked={handleQuestionAsked}
               onStoryFeedback={handleStoryFeedback}
-              onTalkToGuide={() => {
-                setShowVoiceAgent(true);
-                voiceAgent.startConversation(currentPlace, {
-                  title: tour.title,
-                  interests: tour.interests,
-                  personalization: tour.personalization,
-                });
-              }}
+              onTalkToGuide={() => setShowVoiceAgent(true)}
             />
           </div>
         </div>
       </div>
 
-      {/* Voice Agent Panel */}
+      {/* Voice Agent Panel — lazy loaded to isolate SDK from main player */}
       {showVoiceAgent && (
-        <VoiceAgentPanel
-          status={voiceAgent.status as 'connecting' | 'connected' | 'disconnected'}
-          isSpeaking={voiceAgent.isSpeaking}
-          guideName={voiceAgent.guideName}
-          placeName={currentPlace.name}
-          error={voiceAgent.error}
-          onEnd={() => {
-            voiceAgent.endConversation();
-            setShowVoiceAgent(false);
-          }}
-          getInputByteFrequencyData={voiceAgent.getInputByteFrequencyData}
-          getOutputByteFrequencyData={voiceAgent.getOutputByteFrequencyData}
-        />
+        <React.Suspense fallback={null}>
+          <VoiceAgentWrapper
+            place={currentPlace}
+            tourContext={{ title: tour.title, interests: tour.interests, personalization: tour.personalization }}
+            onStart={() => {
+              if (audioRef.current) {
+                audioRef.current.pause();
+                setIsPlaying(false);
+              }
+            }}
+            onClose={() => setShowVoiceAgent(false)}
+          />
+        </React.Suspense>
       )}
     </div>
   );

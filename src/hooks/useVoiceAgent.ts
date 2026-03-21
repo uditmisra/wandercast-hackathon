@@ -31,7 +31,6 @@ interface TourContext {
 
 interface UseVoiceAgentOptions {
   onStart?: () => void;
-  onEnd?: () => void;
 }
 
 export function useVoiceAgent(options?: UseVoiceAgentOptions) {
@@ -39,16 +38,19 @@ export function useVoiceAgent(options?: UseVoiceAgentOptions) {
   const [error, setError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
+  // Stabilize callbacks in refs
+  const onStartRef = useRef(options?.onStart);
+  onStartRef.current = options?.onStart;
+
   const conversation = useConversation({
     onConnect: () => {
       console.log('[VoiceAgent] Connected');
       setIsConnecting(false);
-      options?.onStart?.();
+      onStartRef.current?.();
     },
     onDisconnect: () => {
       console.log('[VoiceAgent] Disconnected');
       setIsConnecting(false);
-      options?.onEnd?.();
     },
     onError: (err: any) => {
       console.error('[VoiceAgent] Error:', err);
@@ -68,14 +70,11 @@ export function useVoiceAgent(options?: UseVoiceAgentOptions) {
       // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // Get agent context (system prompt + first message + Firecrawl web context) from edge function
+      // Get agent context from edge function
       const { data, error: fnError } = await supabase.functions.invoke(
         'get-agent-signed-url',
         {
-          body: {
-            currentPlace: place,
-            tourContext,
-          },
+          body: { currentPlace: place, tourContext },
         }
       );
 
@@ -85,7 +84,7 @@ export function useVoiceAgent(options?: UseVoiceAgentOptions) {
 
       setGuideName(data.guideName);
 
-      // Start session using agentId directly with overrides (no signed URL needed)
+      // Start session using agentId directly with overrides
       await conversation.startSession({
         agentId: AGENT_ID,
         overrides: {
