@@ -6,8 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const elevenLabsApiKey = Deno.env.get('ELEVENLABS_API_KEY');
-const agentId = Deno.env.get('ELEVENLABS_AGENT_ID');
 const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
 
 // Guide personalities — must match interactive-guide-conversation/index.ts
@@ -87,10 +85,6 @@ serve(async (req) => {
       throw new Error('Missing required field: currentPlace');
     }
 
-    if (!elevenLabsApiKey || !agentId) {
-      throw new Error('ElevenLabs Conversational AI not configured');
-    }
-
     const tone = tourContext?.personalization?.preferredTone || 'casual';
     const guide = GUIDES[tone] || GUIDES.casual;
     const interests = tourContext?.interests?.map((i: any) => i.label || i.name).join(', ') || 'general tourism';
@@ -142,35 +136,10 @@ RULES:
 
     const firstMessage = getFirstMessage(guide.name, currentPlace.name, tone);
 
-    console.log(`Getting signed URL for agent ${agentId}, guide: ${guide.name}, place: ${currentPlace.name}`);
-
-    // Request signed URL from ElevenLabs Conversational AI API
-    const signedUrlResponse = await fetch(
-      `https://api.elevenlabs.io/v1/convai/conversation/get_signed_url?agent_id=${encodeURIComponent(agentId)}`,
-      {
-        method: 'GET',
-        headers: {
-          'xi-api-key': elevenLabsApiKey,
-        },
-      }
-    );
-
-    if (!signedUrlResponse.ok) {
-      const errorText = await signedUrlResponse.text();
-      console.error(`ElevenLabs signed URL error ${signedUrlResponse.status}: ${errorText}`);
-      throw new Error(`Failed to get signed URL: ${signedUrlResponse.status}`);
-    }
-
-    const signedUrlData = await signedUrlResponse.json();
-    const signedUrl = signedUrlData.signed_url;
-
-    if (!signedUrl) {
-      throw new Error('No signed URL returned from ElevenLabs');
-    }
+    console.log(`Building agent context for guide: ${guide.name}, place: ${currentPlace.name}`);
 
     return new Response(JSON.stringify({
       success: true,
-      signedUrl,
       guideName: guide.name,
       systemPrompt,
       firstMessage,
