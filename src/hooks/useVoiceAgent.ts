@@ -2,6 +2,8 @@ import { useCallback, useRef, useState } from 'react';
 import { useConversation } from '@11labs/react';
 import { supabase } from '@/integrations/supabase/client';
 
+const AGENT_ID = 'agent_4501km70w8mgff4sx96kj5bd83pv';
+
 interface Place {
   name: string;
   city?: string;
@@ -36,8 +38,6 @@ export function useVoiceAgent(options?: UseVoiceAgentOptions) {
   const [guideName, setGuideName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
-  const systemPromptRef = useRef<string>('');
-  const firstMessageRef = useRef<string>('');
 
   const conversation = useConversation({
     onConnect: () => {
@@ -68,7 +68,7 @@ export function useVoiceAgent(options?: UseVoiceAgentOptions) {
       // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // Get signed URL + agent context from our edge function
+      // Get agent context (system prompt + first message + Firecrawl web context) from edge function
       const { data, error: fnError } = await supabase.functions.invoke(
         'get-agent-signed-url',
         {
@@ -84,12 +84,10 @@ export function useVoiceAgent(options?: UseVoiceAgentOptions) {
       }
 
       setGuideName(data.guideName);
-      systemPromptRef.current = data.systemPrompt || '';
-      firstMessageRef.current = data.firstMessage || '';
 
-      // Start the ElevenLabs conversation session
+      // Start session using agentId directly with overrides (no signed URL needed)
       await conversation.startSession({
-        signedUrl: data.signedUrl,
+        agentId: AGENT_ID,
         overrides: {
           agent: {
             prompt: {
@@ -104,7 +102,7 @@ export function useVoiceAgent(options?: UseVoiceAgentOptions) {
 
       let errorMessage = 'Failed to start voice conversation';
       if (err?.name === 'NotAllowedError' || err?.message?.includes('Permission')) {
-        errorMessage = 'Microphone access is required for voice conversations. Please allow microphone access and try again.';
+        errorMessage = 'Microphone access is required. Please allow microphone access and try again.';
       } else if (err?.message) {
         errorMessage = err.message;
       }
