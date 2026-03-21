@@ -31,7 +31,7 @@ serve(async (req) => {
     console.log(`Firecrawl search: "${query}" (location: ${location || 'none'}, limit: ${limit})`);
 
     const ctrl = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), 8000);
+    const timeout = setTimeout(() => ctrl.abort(), 15000);
 
     try {
       const body: Record<string, unknown> = {

@@ -972,7 +972,7 @@ async function fetchViaFirecrawl(placeName: string, city: string): Promise<{ con
   }
 
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 8000);
+  const t = setTimeout(() => ctrl.abort(), 15000);
 
   try {
     const query = city ? `${placeName} ${city} history culture travel guide` : `${placeName} history culture travel`;
