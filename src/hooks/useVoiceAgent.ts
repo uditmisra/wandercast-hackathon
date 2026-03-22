@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from 'react';
-import { useConversation } from '@11labs/react';
+import { useCallback, useRef, useState, useEffect } from 'react';
+import { Conversation } from '@11labs/client';
 import { supabase } from '@/integrations/supabase/client';
 
 const AGENT_ID = 'agent_4501km70w8mgff4sx96kj5bd83pv';
@@ -36,35 +36,26 @@ interface UseVoiceAgentOptions {
 export function useVoiceAgent(options?: UseVoiceAgentOptions) {
   const [guideName, setGuideName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [status, setStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
-  // Stabilize callbacks in refs
+  const conversationRef = useRef<any>(null);
   const onStartRef = useRef(options?.onStart);
   onStartRef.current = options?.onStart;
 
-  const conversation = useConversation({
-    onConnect: () => {
-      console.log('[VoiceAgent] Connected');
-      setIsConnecting(false);
-      onStartRef.current?.();
-    },
-    onDisconnect: () => {
-      console.log('[VoiceAgent] Disconnected');
-      setIsConnecting(false);
-    },
-    onError: (err: any) => {
-      console.error('[VoiceAgent] Error:', err);
-      setError(typeof err === 'string' ? err : err?.message || 'Voice agent error');
-      setIsConnecting(false);
-    },
-    onMessage: (message: any) => {
-      console.log('[VoiceAgent] Message:', message);
-    },
-  });
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (conversationRef.current) {
+        conversationRef.current.endSession().catch(() => {});
+        conversationRef.current = null;
+      }
+    };
+  }, []);
 
   const startConversation = useCallback(async (place: Place, tourContext: TourContext) => {
     setError(null);
-    setIsConnecting(true);
+    setStatus('connecting');
 
     try {
       // Request microphone permission
@@ -84,8 +75,8 @@ export function useVoiceAgent(options?: UseVoiceAgentOptions) {
 
       setGuideName(data.guideName);
 
-      // Start session using agentId directly with overrides
-      await conversation.startSession({
+      // Start session using the Conversation class directly (no React hook lifecycle issues)
+      const session = await Conversation.startSession({
         agentId: AGENT_ID,
         overrides: {
           agent: {
@@ -95,7 +86,31 @@ export function useVoiceAgent(options?: UseVoiceAgentOptions) {
             firstMessage: data.firstMessage,
           },
         },
+        onConnect: () => {
+          console.log('[VoiceAgent] Connected');
+          setStatus('connected');
+          onStartRef.current?.();
+        },
+        onDisconnect: () => {
+          console.log('[VoiceAgent] Disconnected');
+          setStatus('disconnected');
+          setIsSpeaking(false);
+          conversationRef.current = null;
+        },
+        onError: (err: any) => {
+          console.error('[VoiceAgent] Error:', err);
+          setError(typeof err === 'string' ? err : err?.message || 'Voice agent error');
+          setStatus('disconnected');
+        },
+        onMessage: (message: any) => {
+          console.log('[VoiceAgent] Message:', message);
+        },
+        onModeChange: ({ mode }: { mode: string }) => {
+          setIsSpeaking(mode === 'speaking');
+        },
       });
+
+      conversationRef.current = session;
     } catch (err: any) {
       console.error('[VoiceAgent] Start failed:', err);
 
@@ -107,27 +122,32 @@ export function useVoiceAgent(options?: UseVoiceAgentOptions) {
       }
 
       setError(errorMessage);
-      setIsConnecting(false);
+      setStatus('disconnected');
     }
-  }, [conversation]);
+  }, []);
 
   const endConversation = useCallback(async () => {
     try {
-      await conversation.endSession();
+      if (conversationRef.current) {
+        await conversationRef.current.endSession();
+        conversationRef.current = null;
+      }
     } catch (err) {
       console.error('[VoiceAgent] End session error:', err);
     }
     setGuideName(null);
-  }, [conversation]);
+    setStatus('disconnected');
+    setIsSpeaking(false);
+  }, []);
 
   return {
-    status: isConnecting ? 'connecting' as const : conversation.status,
-    isSpeaking: conversation.isSpeaking,
+    status,
+    isSpeaking,
     guideName,
     error,
     startConversation,
     endConversation,
-    getInputByteFrequencyData: conversation.getInputByteFrequencyData,
-    getOutputByteFrequencyData: conversation.getOutputByteFrequencyData,
+    getInputByteFrequencyData: () => conversationRef.current?.getInputByteFrequencyData?.(),
+    getOutputByteFrequencyData: () => conversationRef.current?.getOutputByteFrequencyData?.(),
   };
 }

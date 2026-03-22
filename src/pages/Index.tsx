@@ -155,19 +155,16 @@ const Index = () => {
   const handlePlayTour = async (tour: TourPlan) => {
     console.log('[Index] handlePlayTour called:', tour.title, 'places:', tour.places.length, 'hasPending:', tour.places.some(p => !!(p.generatedContent as any)?._pending));
 
-    // Gate: anonymous users get 1 free tour, then must sign up
-    if (!user) {
-      const usage = getAnonUsage();
-      if (usage.toursPlayed >= 1) {
-        analytics.freeLimitReached({ limit_type: 'tours', current_count: usage.toursPlayed, plan: 'free' });
-        analytics.paywallShown({ trigger: 'tour_limit', location: 'modal' });
-        paywallShownAt = Date.now();
-        pendingTourRef.current = tour;
-        setShowTourAuthWall(true);
-        return;
-      }
-      trackAnonTour();
-    }
+    // Auth wall disabled for local development / hackathon testing
+    // if (!user) {
+    //   const usage = getAnonUsage();
+    //   if (usage.toursPlayed >= 1) {
+    //     pendingTourRef.current = tour;
+    //     setShowTourAuthWall(true);
+    //     return;
+    //   }
+    //   trackAnonTour();
+    // }
 
     // Fire tour_created for all newly played tours (dashboard replays go through useEffect, not here)
     const tourNumber = user ? savedTours.length + 1 : getAnonUsage().toursPlayed;

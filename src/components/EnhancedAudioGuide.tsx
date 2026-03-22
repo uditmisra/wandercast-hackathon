@@ -62,14 +62,19 @@ export function EnhancedAudioGuide({ tour, initialStopIndex = 0, onBack, enrichm
 
   // ── Voice agent (ElevenLabs Conversational AI) ──
   const [showVoiceAgent, setShowVoiceAgent] = useState(false);
+  const voiceAgentTourContext = useRef({ title: tour.title, interests: tour.interests, personalization: tour.personalization }).current;
+  const handleVoiceAgentStart = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
+  }, []);
+  const handleVoiceAgentClose = useCallback(() => setShowVoiceAgent(false), []);
 
   /** Returns true if navigation is blocked (auth required) */
-  const requireAuth = (targetIndex: number): boolean => {
-    if (user) return false;
-    if (targetIndex === 0) return false;
-    pendingStopRef.current = targetIndex;
-    setShowAuthWall(true);
-    return true;
+  const requireAuth = (_targetIndex: number): boolean => {
+    // Auth wall disabled for local development / hackathon testing
+    return false;
   };
 
   const handleAuthSuccess = () => {
@@ -705,14 +710,9 @@ export function EnhancedAudioGuide({ tour, initialStopIndex = 0, onBack, enrichm
         <React.Suspense fallback={null}>
           <VoiceAgentWrapper
             place={currentPlace}
-            tourContext={{ title: tour.title, interests: tour.interests, personalization: tour.personalization }}
-            onStart={() => {
-              if (audioRef.current) {
-                audioRef.current.pause();
-                setIsPlaying(false);
-              }
-            }}
-            onClose={() => setShowVoiceAgent(false)}
+            tourContext={voiceAgentTourContext}
+            onStart={handleVoiceAgentStart}
+            onClose={handleVoiceAgentClose}
           />
         </React.Suspense>
       )}

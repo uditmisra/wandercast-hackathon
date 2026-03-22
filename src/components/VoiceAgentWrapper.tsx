@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useVoiceAgent } from '@/hooks/useVoiceAgent';
 import { VoiceAgentPanel } from './VoiceAgentPanel';
 import { Place } from '@/types/tour';
@@ -17,9 +17,17 @@ interface VoiceAgentWrapperProps {
 export function VoiceAgentWrapper({ place, tourContext, onStart, onClose }: VoiceAgentWrapperProps) {
   const voiceAgent = useVoiceAgent({ onStart });
 
-  // Auto-start conversation on mount
+  // Capture initial props in refs so re-renders don't restart the conversation
+  const placeRef = useRef(place);
+  const tourContextRef = useRef(tourContext);
+  const startedRef = useRef(false);
+
+  // Start conversation exactly once on mount
   useEffect(() => {
-    voiceAgent.startConversation(place, tourContext);
+    if (!startedRef.current) {
+      startedRef.current = true;
+      voiceAgent.startConversation(placeRef.current, tourContextRef.current);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -33,7 +41,7 @@ export function VoiceAgentWrapper({ place, tourContext, onStart, onClose }: Voic
       status={voiceAgent.status as 'connecting' | 'connected' | 'disconnected'}
       isSpeaking={voiceAgent.isSpeaking}
       guideName={voiceAgent.guideName}
-      placeName={place.name}
+      placeName={placeRef.current.name}
       error={voiceAgent.error}
       onEnd={handleEnd}
       getInputByteFrequencyData={voiceAgent.getInputByteFrequencyData}
