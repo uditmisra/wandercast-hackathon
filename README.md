@@ -1,73 +1,112 @@
-# Welcome to your Lovable project
+# Wandercast — Talk to Any Place on Earth
 
-## Project info
+Pick any landmark, any city, anywhere — and have a real-time voice conversation with an AI guide who actually knows the place.
 
-**URL**: https://lovable.dev/projects/d0cdb7ca-a47e-4148-b010-a13909fca1f3
+**Live demo:** [wandercast-hackathon.vercel.app](https://wandercast-hackathon.vercel.app)
 
-## How can I edit this code?
+Built for [ElevenLabs Hack #1: Firecrawl](https://hacks.elevenlabs.io/hackathons/0)
 
-There are several ways of editing your application.
+## How it works
 
-**Use Lovable**
+1. **You pick a place** — type "Colosseum, Rome" or tap a suggestion
+2. **Firecrawl Search** scrapes the web in real time — official sites, travel guides, local sources — and builds a rich knowledge base about that place
+3. **ElevenLabs Conversational AI** turns that knowledge into a live voice agent you can actually talk to — ask questions, go on tangents, dig deeper
+4. **You have a real conversation** — not a scripted tour, not a text chatbot. A voice that knows the place and can riff on anything you throw at it.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/d0cdb7ca-a47e-4148-b010-a13909fca1f3) and start prompting.
+## What makes it different
 
-Changes made via Lovable will be committed automatically to this repo.
+- **Not pre-recorded.** Every conversation is generated live from real web data.
+- **Not a search engine.** It's a voice you talk to. Ask follow-ups. Go off-script. It handles it.
+- **Not generic.** Firecrawl pulls from the actual venue's website, recent reviews, local guides — not just Wikipedia.
+- **Any place on Earth.** Colosseum, a street food stall in Bangkok, a castle in Scotland. If it's on the web, Wandercast can talk about it.
 
-**Use your preferred IDE**
+## Tech stack
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+| Layer | Technology |
+|-------|-----------|
+| **Voice agent** | [ElevenLabs Conversational AI](https://elevenlabs.io/docs/eleven-agents) — real-time two-way voice conversation |
+| **Web knowledge** | [Firecrawl Search API](https://firecrawl.dev) — scrapes and structures web content for the agent |
+| **Agent tools** | Firecrawl as a server-side tool — agent can search the web mid-conversation |
+| **Frontend** | React 18, TypeScript, Vite, TailwindCSS, Mapbox GL (ambient globe) |
+| **Backend** | Supabase Edge Functions (Deno runtime) |
+| **Deployment** | Vercel |
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Architecture
 
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+User types a place
+       |
+       v
+┌──────────────────────┐
+│  ConversationPage    │  React SPA — globe map + place input
+└──────────┬───────────┘
+           |
+           v
+┌──────────────────────┐     ┌─────────────────┐
+│  get-agent-signed-url│────>│  Firecrawl Search│  Scrapes web for place context
+│  (Supabase Edge Fn)  │     └─────────────────┘
+│                      │
+│  Builds system prompt│  Guide personality + web knowledge + place data
+│  Returns to client   │
+└──────────┬───────────┘
+           |
+           v
+┌──────────────────────┐     ┌─────────────────┐
+│  ElevenLabs Agent    │────>│  firecrawl-search│  Mid-conversation web lookups
+│  (Conversational AI) │     │  (agent tool)    │
+│                      │     └─────────────────┘
+│  Real-time voice     │
+│  conversation        │
+└──────────────────────┘
 ```
 
-**Edit a file directly in GitHub**
+## Running locally
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+git clone https://github.com/uditmisra/wandercast-hackathon.git
+cd wandercast-hackathon
+npm install
+cp .env.example .env.local  # Add your VITE_MAPBOX_TOKEN
+npm run dev                  # http://localhost:8080
+```
 
-**Use GitHub Codespaces**
+### Required secrets (Supabase Edge Functions)
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```bash
+FIRECRAWL_API_KEY=...       # firecrawl.dev
+ELEVENLABS_API_KEY=...      # elevenlabs.io
+ELEVENLABS_AGENT_ID=...     # Your Conversational AI agent ID
+ANTHROPIC_API_KEY=...       # For the classic tour mode (/classic)
+OPENAI_API_KEY=...          # For the classic tour mode (/classic)
+```
 
-## What technologies are used for this project?
+## Project structure
 
-This project is built with:
+```
+src/
+├── pages/
+│   └── ConversationPage.tsx    # The two-screen UI (globe home + voice agent)
+├── hooks/
+│   └── useVoiceAgent.ts        # ElevenLabs Conversation session management
+├── components/
+│   ├── VoiceAgentPanel.tsx      # Conversation screen (orb, captions, backdrop)
+│   └── VoiceAgentWrapper.tsx    # Lazy-load wrapper
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+supabase/functions/
+├── get-agent-signed-url/       # Builds agent context with Firecrawl + guide personality
+├── firecrawl-search/           # Standalone Firecrawl search (agent tool webhook)
+└── generate-tour-content/      # Content pipeline (used by /classic mode)
+```
 
-## How can I deploy this project?
+## Cost per session
 
-Simply open [Lovable](https://lovable.dev/projects/d0cdb7ca-a47e-4148-b010-a13909fca1f3) and click on Share -> Publish.
+| Component | Cost |
+|-----------|------|
+| Firecrawl context search | ~$0.003 |
+| ElevenLabs voice agent (~2 min) | ~$0.30 |
+| Firecrawl mid-conversation searches | ~$0.006 |
+| **Total** | **~$0.31** |
 
-## Can I connect a custom domain to my Lovable project?
+## License
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+MIT
