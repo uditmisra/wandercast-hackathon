@@ -36,8 +36,8 @@ export function VoiceAgentWrapper({ place, tourContext, onStart, onClose }: Voic
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleEnd = () => {
-    voiceAgent.endConversation();
+  const handleEnd = async () => {
+    await voiceAgent.endConversation();
     onClose();
   };
 

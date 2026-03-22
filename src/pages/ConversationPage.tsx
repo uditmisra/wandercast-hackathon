@@ -1,17 +1,22 @@
-import React, { useState, useCallback } from 'react';
-import { Phone } from 'lucide-react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Phone, MapPin } from 'lucide-react';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 const VoiceAgentWrapper = React.lazy(() =>
   import('@/components/VoiceAgentWrapper').then(m => ({ default: m.VoiceAgentWrapper }))
 );
 
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+if (MAPBOX_TOKEN) mapboxgl.accessToken = MAPBOX_TOKEN;
+
 const SUGGESTIONS = [
-  { label: 'Colosseum, Rome', place: 'Colosseum', city: 'Rome' },
-  { label: 'Eiffel Tower, Paris', place: 'Eiffel Tower', city: 'Paris' },
-  { label: 'Edinburgh Castle', place: 'Edinburgh Castle', city: 'Edinburgh' },
-  { label: 'Taj Mahal, Agra', place: 'Taj Mahal', city: 'Agra' },
-  { label: 'Shibuya Crossing, Tokyo', place: 'Shibuya Crossing', city: 'Tokyo' },
-  { label: 'Brooklyn Bridge, NYC', place: 'Brooklyn Bridge', city: 'New York' },
+  { label: 'Colosseum, Rome', place: 'Colosseum', city: 'Rome', lng: 12.4924, lat: 41.8902 },
+  { label: 'Eiffel Tower, Paris', place: 'Eiffel Tower', city: 'Paris', lng: 2.2945, lat: 48.8584 },
+  { label: 'Edinburgh Castle', place: 'Edinburgh Castle', city: 'Edinburgh', lng: -3.2007, lat: 55.9486 },
+  { label: 'Taj Mahal, Agra', place: 'Taj Mahal', city: 'Agra', lng: 78.0421, lat: 27.1751 },
+  { label: 'Shibuya Crossing, Tokyo', place: 'Shibuya Crossing', city: 'Tokyo', lng: 139.7016, lat: 35.6595 },
+  { label: 'Brooklyn Bridge, NYC', place: 'Brooklyn Bridge', city: 'New York', lng: -73.9969, lat: 40.7061 },
 ];
 
 function parseInput(input: string): { place: string; city: string } {
@@ -26,10 +31,66 @@ function parseInput(input: string): { place: string; city: string } {
   return { place: trimmed, city: '' };
 }
 
+/** Ambient dark globe map — purely decorative backdrop */
+function AmbientMap() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+
+  useEffect(() => {
+    if (!MAPBOX_TOKEN || !containerRef.current || mapRef.current) return;
+
+    const map = new mapboxgl.Map({
+      container: containerRef.current,
+      style: 'mapbox://styles/mapbox/dark-v11',
+      center: [20, 30],
+      zoom: 1.5,
+      interactive: false,
+      attributionControl: false,
+      projection: 'globe' as any,
+    });
+
+    map.on('style.load', () => {
+      map.setFog({
+        color: 'rgba(0, 0, 0, 0.9)',
+        'high-color': 'rgba(30, 20, 60, 0.6)',
+        'horizon-blend': 0.08,
+        'space-color': 'rgba(0, 0, 0, 1)',
+        'star-intensity': 0.15,
+      } as any);
+    });
+
+    // Slow auto-rotate
+    const rotate = () => {
+      if (!mapRef.current) return;
+      const center = mapRef.current.getCenter();
+      center.lng += 0.01;
+      mapRef.current.setCenter(center);
+      requestAnimationFrame(rotate);
+    };
+    map.on('load', rotate);
+
+    mapRef.current = map;
+
+    return () => {
+      mapRef.current = null;
+      map.remove();
+    };
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className="absolute inset-0 opacity-40"
+      style={{ filter: 'saturate(0.3) brightness(0.5)' }}
+    />
+  );
+}
+
 export default function ConversationPage() {
   const [view, setView] = useState<'home' | 'conversation'>('home');
   const [input, setInput] = useState('');
   const [activePlace, setActivePlace] = useState({ place: '', city: '' });
+  const [focusedSuggestion, setFocusedSuggestion] = useState<number | null>(null);
 
   const startConversation = useCallback((place: string, city: string) => {
     if (!place.trim()) return;
@@ -62,7 +123,7 @@ export default function ConversationPage() {
     return (
       <React.Suspense fallback={
         <div className="min-h-screen bg-black flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-white/10 border-t-white/50 rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-white/10 border-t-violet-400/50 rounded-full animate-spin" />
         </div>
       }>
         <VoiceAgentWrapper
@@ -78,59 +139,89 @@ export default function ConversationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center relative overflow-hidden px-6">
-      {/* Background glow */}
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center relative overflow-hidden">
+      {/* Ambient globe map backdrop */}
+      <AmbientMap />
+
+      {/* Gradient overlays for depth */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-violet-500/[0.03] blur-[120px]" />
+        {/* Top fade */}
+        <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-black via-black/80 to-transparent" />
+        {/* Bottom fade */}
+        <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black via-black/90 to-transparent" />
+        {/* Center vignette */}
+        <div className="absolute inset-0 bg-radial-gradient" style={{
+          background: 'radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.7) 70%, rgba(0,0,0,0.95) 100%)',
+        }} />
+        {/* Violet accent glow */}
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-violet-600/[0.06] blur-[100px]" />
       </div>
 
       {/* Content */}
-      <div className="relative z-10 w-full max-w-md text-center">
+      <div className="relative z-10 w-full max-w-lg text-center px-6">
         {/* Brand */}
-        <h1 className="font-display text-4xl sm:text-5xl text-white mb-3 tracking-tight">
-          Wandercast
-        </h1>
-        <p className="text-white/50 text-lg sm:text-xl mb-12">
-          Talk to any place on Earth
-        </p>
+        <div className="mb-16">
+          <h1 className="font-display text-5xl sm:text-6xl text-white mb-4 tracking-tight drop-shadow-lg">
+            Wandercast
+          </h1>
+          <p className="text-white/40 text-lg sm:text-xl font-light tracking-wide">
+            Talk to any place on Earth
+          </p>
+        </div>
 
         {/* Input */}
-        <form onSubmit={handleSubmit} className="mb-8">
-          <div className="relative">
-            <input
-              type="text"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              placeholder="Colosseum, Rome"
-              autoFocus
-              className="w-full rounded-2xl bg-white/[0.05] border border-white/[0.1] text-white text-lg py-4 px-6 pr-14 placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-transparent transition-all"
-            />
-            <button
-              type="submit"
-              disabled={!input.trim()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-green-500 hover:bg-green-400 disabled:bg-white/10 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
-            >
-              <Phone className="w-4 h-4 text-white" />
-            </button>
+        <form onSubmit={handleSubmit} className="mb-10">
+          <div className="relative group">
+            {/* Glow behind input */}
+            <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-violet-500/20 via-blue-500/10 to-violet-500/20 opacity-0 group-focus-within:opacity-100 blur-xl transition-opacity duration-500" />
+            <div className="relative flex items-center">
+              <MapPin className="absolute left-5 w-5 h-5 text-white/20" />
+              <input
+                type="text"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                placeholder="Where do you want to go?"
+                autoFocus
+                className="w-full rounded-2xl bg-white/[0.06] border border-white/[0.1] text-white text-lg py-4 pl-14 pr-16 placeholder:text-white/20 focus:outline-none focus:border-violet-500/40 focus:bg-white/[0.08] transition-all duration-300 backdrop-blur-sm"
+              />
+              <button
+                type="submit"
+                disabled={!input.trim()}
+                className="absolute right-2.5 w-11 h-11 rounded-xl bg-violet-500 hover:bg-violet-400 disabled:bg-white/[0.06] disabled:border disabled:border-white/[0.06] disabled:cursor-not-allowed flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg shadow-violet-500/25 disabled:shadow-none"
+              >
+                <Phone className="w-4.5 h-4.5 text-white" />
+              </button>
+            </div>
           </div>
         </form>
 
         {/* Suggestion chips */}
-        <div className="flex flex-wrap justify-center gap-2">
-          {SUGGESTIONS.map(s => (
+        <div className="flex flex-wrap justify-center gap-2.5">
+          {SUGGESTIONS.map((s, i) => (
             <button
               key={s.label}
               onClick={() => startConversation(s.place, s.city)}
-              className="px-4 py-2 rounded-full bg-white/[0.04] border border-white/[0.08] text-white/50 text-sm hover:bg-white/[0.08] hover:text-white/70 transition-all"
+              onMouseEnter={() => setFocusedSuggestion(i)}
+              onMouseLeave={() => setFocusedSuggestion(null)}
+              className={`group/chip px-4 py-2.5 rounded-full border text-sm transition-all duration-300 ${
+                focusedSuggestion === i
+                  ? 'bg-violet-500/15 border-violet-500/30 text-white/80 scale-105'
+                  : 'bg-white/[0.03] border-white/[0.06] text-white/40 hover:bg-white/[0.06] hover:text-white/60 hover:border-white/[0.12]'
+              }`}
             >
-              {s.label}
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin className={`w-3 h-3 transition-colors duration-300 ${
+                  focusedSuggestion === i ? 'text-violet-400' : 'text-white/20'
+                }`} />
+                {s.label}
+              </span>
             </button>
           ))}
         </div>
       </div>
 
       {/* Attribution */}
-      <div className="absolute bottom-6 text-white/15 text-xs">
+      <div className="absolute bottom-6 text-white/10 text-xs tracking-wider">
         Powered by ElevenLabs + Firecrawl
       </div>
     </div>
