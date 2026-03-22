@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { Mic, MicOff, Phone, PhoneOff, Loader2 } from 'lucide-react';
+import { Mic, MicOff, Phone, PhoneOff, Loader2, X } from 'lucide-react';
+import type { VoiceMessage } from '@/hooks/useVoiceAgent';
 
 interface VoiceAgentPanelProps {
   status: 'connecting' | 'connected' | 'disconnected';
@@ -7,6 +8,7 @@ interface VoiceAgentPanelProps {
   guideName: string | null;
   placeName: string;
   error: string | null;
+  messages: VoiceMessage[];
   onEnd: () => void;
   getInputByteFrequencyData?: () => Uint8Array | undefined;
   getOutputByteFrequencyData?: () => Uint8Array | undefined;
@@ -18,6 +20,7 @@ export function VoiceAgentPanel({
   guideName,
   placeName,
   error,
+  messages,
   onEnd,
   getInputByteFrequencyData,
   getOutputByteFrequencyData,
@@ -25,7 +28,6 @@ export function VoiceAgentPanel({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
 
-  // Animated orb visualization driven by audio frequency data
   const animate = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -39,7 +41,6 @@ export function VoiceAgentPanel({
 
     ctx.clearRect(0, 0, w, h);
 
-    // Get audio level
     let level = 0;
     if (status === 'connected') {
       const freqData = isSpeaking
@@ -122,32 +123,64 @@ export function VoiceAgentPanel({
     return <MicOff className="w-4 h-4" />;
   })();
 
+  // Show last 3 messages
+  const recentMessages = messages.slice(-3);
+
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 backdrop-blur-sm animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black animate-in fade-in duration-300">
+      {/* Back button */}
+      <button
+        onClick={onEnd}
+        className="absolute top-6 left-6 p-2 rounded-full hover:bg-white/5 transition-colors z-10"
+        aria-label="End conversation"
+      >
+        <X className="w-6 h-6 text-white/50 hover:text-white/80" />
+      </button>
+
       {/* Guide info */}
-      <div className="text-center mb-8">
-        <p className="text-white/50 text-sm uppercase tracking-wider mb-1">Talking to</p>
+      <div className="text-center mb-6">
+        <p className="text-white/40 text-xs uppercase tracking-[0.2em] mb-1">Talking to</p>
         <h2 className="text-white text-2xl font-semibold">{guideName || 'Your Guide'}</h2>
-        <p className="text-white/40 text-sm mt-1">{placeName}</p>
+        <p className="text-white/30 text-sm mt-1">{placeName}</p>
       </div>
 
       {/* Animated orb */}
-      <div className="relative mb-8">
+      <div className="relative mb-4">
         <canvas
           ref={canvasRef}
           width={300}
           height={300}
-          className="w-[300px] h-[300px]"
+          className="w-[250px] h-[250px] sm:w-[300px] sm:h-[300px]"
         />
       </div>
 
       {/* Status */}
-      <div className="flex items-center gap-2 mb-10 px-4 py-2 rounded-full bg-white/5">
+      <div className="flex items-center gap-2 mb-6 px-4 py-2 rounded-full bg-white/5">
         {statusIcon}
         <span className={`text-sm ${error ? 'text-red-400' : 'text-white/70'}`}>
           {statusText}
         </span>
       </div>
+
+      {/* Transcript */}
+      {recentMessages.length > 0 && (
+        <div className="w-full max-w-sm px-6 mb-8 space-y-2">
+          {recentMessages.map((msg, i) => {
+            const isLatest = i === recentMessages.length - 1;
+            return (
+              <p
+                key={msg.timestamp}
+                className={`text-sm text-center leading-relaxed transition-opacity duration-500 ${
+                  msg.role === 'agent' ? 'text-white/60' : 'text-violet-300/60'
+                } ${isLatest ? 'opacity-100' : 'opacity-30'}`}
+              >
+                {msg.role === 'user' && <span className="text-violet-400/40 text-xs mr-1">You: </span>}
+                {msg.content}
+              </p>
+            );
+          })}
+        </div>
+      )}
 
       {/* End conversation button */}
       <button
@@ -159,7 +192,7 @@ export function VoiceAgentPanel({
       </button>
 
       {/* Attribution */}
-      <div className="absolute bottom-6 flex items-center gap-2 text-white/20 text-xs">
+      <div className="absolute bottom-6 flex items-center gap-2 text-white/15 text-xs">
         <span>Powered by ElevenLabs + Firecrawl</span>
       </div>
     </div>

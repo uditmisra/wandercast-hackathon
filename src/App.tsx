@@ -10,6 +10,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import posthog from "posthog-js";
 import { PostHogProvider } from "posthog-js/react";
+import ConversationPage from "./pages/ConversationPage";
 import Index from "./pages/Index";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
@@ -98,7 +99,8 @@ const App = () => (
                 <PostHogPageviewTracker />
                 <Suspense fallback={<PageLoader />}>
                   <Routes>
-                    <Route path="/" element={<Index />} />
+                    <Route path="/" element={<ConversationPage />} />
+                    <Route path="/classic" element={<Index />} />
                     <Route path="/explore" element={<Index />} />
                     <Route path="/explore/build" element={<Index />} />
                     <Route path="/auth" element={<Auth />} />

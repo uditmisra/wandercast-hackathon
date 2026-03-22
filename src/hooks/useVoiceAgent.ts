@@ -29,8 +29,15 @@ interface TourContext {
   };
 }
 
+export interface VoiceMessage {
+  role: 'agent' | 'user';
+  content: string;
+  timestamp: number;
+}
+
 interface UseVoiceAgentOptions {
   onStart?: () => void;
+  onMessage?: (message: VoiceMessage) => void;
 }
 
 export function useVoiceAgent(options?: UseVoiceAgentOptions) {
@@ -42,6 +49,8 @@ export function useVoiceAgent(options?: UseVoiceAgentOptions) {
   const conversationRef = useRef<any>(null);
   const onStartRef = useRef(options?.onStart);
   onStartRef.current = options?.onStart;
+  const onMessageRef = useRef(options?.onMessage);
+  onMessageRef.current = options?.onMessage;
 
   // Clean up on unmount
   useEffect(() => {
@@ -104,6 +113,13 @@ export function useVoiceAgent(options?: UseVoiceAgentOptions) {
         },
         onMessage: (message: any) => {
           console.log('[VoiceAgent] Message:', message);
+          if (message?.source && message?.message) {
+            onMessageRef.current?.({
+              role: message.source === 'ai' ? 'agent' : 'user',
+              content: message.message,
+              timestamp: Date.now(),
+            });
+          }
         },
         onModeChange: ({ mode }: { mode: string }) => {
           setIsSpeaking(mode === 'speaking');

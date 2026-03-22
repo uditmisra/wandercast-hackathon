@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { useVoiceAgent } from '@/hooks/useVoiceAgent';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { useVoiceAgent, VoiceMessage } from '@/hooks/useVoiceAgent';
 import { VoiceAgentPanel } from './VoiceAgentPanel';
 import { Place } from '@/types/tour';
 
@@ -15,14 +15,19 @@ interface VoiceAgentWrapperProps {
 }
 
 export function VoiceAgentWrapper({ place, tourContext, onStart, onClose }: VoiceAgentWrapperProps) {
-  const voiceAgent = useVoiceAgent({ onStart });
+  const [messages, setMessages] = useState<VoiceMessage[]>([]);
+
+  const handleMessage = useCallback((msg: VoiceMessage) => {
+    setMessages(prev => [...prev, msg]);
+  }, []);
+
+  const voiceAgent = useVoiceAgent({ onStart, onMessage: handleMessage });
 
   // Capture initial props in refs so re-renders don't restart the conversation
   const placeRef = useRef(place);
   const tourContextRef = useRef(tourContext);
   const startedRef = useRef(false);
 
-  // Start conversation exactly once on mount
   useEffect(() => {
     if (!startedRef.current) {
       startedRef.current = true;
@@ -43,6 +48,7 @@ export function VoiceAgentWrapper({ place, tourContext, onStart, onClose }: Voic
       guideName={voiceAgent.guideName}
       placeName={placeRef.current.name}
       error={voiceAgent.error}
+      messages={messages}
       onEnd={handleEnd}
       getInputByteFrequencyData={voiceAgent.getInputByteFrequencyData}
       getOutputByteFrequencyData={voiceAgent.getOutputByteFrequencyData}
