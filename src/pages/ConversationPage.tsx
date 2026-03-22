@@ -31,13 +31,26 @@ function parseInput(input: string): { place: string; city: string } {
   return { place: trimmed, city: '' };
 }
 
-/** Ambient dark globe map — purely decorative backdrop */
+/** Ambient dark globe map — decorative backdrop that flies to locations */
+const ambientMapRef = { current: null as mapboxgl.Map | null };
+let rotateActive = true;
+
+function flyMapTo(lng: number, lat: number) {
+  if (!ambientMapRef.current) return;
+  rotateActive = false;
+  ambientMapRef.current.flyTo({
+    center: [lng, lat],
+    zoom: 4,
+    duration: 3000,
+    curve: 1.5,
+  });
+}
+
 function AmbientMap() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
 
   useEffect(() => {
-    if (!MAPBOX_TOKEN || !containerRef.current || mapRef.current) return;
+    if (!MAPBOX_TOKEN || !containerRef.current || ambientMapRef.current) return;
 
     const map = new mapboxgl.Map({
       container: containerRef.current,
@@ -51,28 +64,47 @@ function AmbientMap() {
 
     map.on('style.load', () => {
       map.setFog({
-        color: 'rgba(0, 0, 0, 0.9)',
-        'high-color': 'rgba(30, 20, 60, 0.6)',
-        'horizon-blend': 0.08,
-        'space-color': 'rgba(0, 0, 0, 1)',
-        'star-intensity': 0.15,
+        color: 'rgba(15, 15, 40, 0.3)',
+        'high-color': 'rgba(80, 60, 150, 0.3)',
+        'horizon-blend': 0.04,
+        'space-color': 'rgba(8, 8, 20, 1)',
+        'star-intensity': 0.5,
       } as any);
     });
 
-    // Slow auto-rotate
+    // Slow auto-rotate (stops when flyTo is triggered)
     const rotate = () => {
-      if (!mapRef.current) return;
-      const center = mapRef.current.getCenter();
-      center.lng += 0.01;
-      mapRef.current.setCenter(center);
+      if (!ambientMapRef.current) return;
+      if (rotateActive) {
+        const center = ambientMapRef.current.getCenter();
+        center.lng += 0.01;
+        ambientMapRef.current.setCenter(center);
+      }
       requestAnimationFrame(rotate);
     };
-    map.on('load', rotate);
+    map.on('load', () => {
+      rotate();
+      // Try to center on user's location
+      navigator.geolocation?.getCurrentPosition(
+        (pos) => {
+          if (ambientMapRef.current && rotateActive) {
+            ambientMapRef.current.flyTo({
+              center: [pos.coords.longitude, pos.coords.latitude],
+              zoom: 3,
+              duration: 4000,
+            });
+          }
+        },
+        () => {}, // silently ignore if denied
+        { timeout: 5000 }
+      );
+    });
 
-    mapRef.current = map;
+    ambientMapRef.current = map;
 
     return () => {
-      mapRef.current = null;
+      ambientMapRef.current = null;
+      rotateActive = true;
       map.remove();
     };
   }, []);
@@ -80,8 +112,8 @@ function AmbientMap() {
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 opacity-40"
-      style={{ filter: 'saturate(0.3) brightness(0.5)' }}
+      className="absolute inset-0"
+      style={{ filter: 'saturate(0.8) brightness(1)' }}
     />
   );
 }
@@ -92,10 +124,28 @@ export default function ConversationPage() {
   const [activePlace, setActivePlace] = useState({ place: '', city: '' });
   const [focusedSuggestion, setFocusedSuggestion] = useState<number | null>(null);
 
-  const startConversation = useCallback((place: string, city: string) => {
+  const startConversation = useCallback((place: string, city: string, lng?: number, lat?: number) => {
     if (!place.trim()) return;
     setActivePlace({ place: place.trim(), city: city.trim() });
-    setView('conversation');
+
+    // Fly map to location, then start conversation after a brief visual moment
+    if (lng && lat) {
+      flyMapTo(lng, lat);
+      setTimeout(() => setView('conversation'), 1500);
+    } else if (MAPBOX_TOKEN) {
+      // Geocode the typed place, fly to it, then start
+      const query = encodeURIComponent(city ? `${place}, ${city}` : place);
+      fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${MAPBOX_TOKEN}&limit=1`)
+        .then(r => r.json())
+        .then(data => {
+          const [geoLng, geoLat] = data.features?.[0]?.center || [];
+          if (geoLng && geoLat) flyMapTo(geoLng, geoLat);
+          setTimeout(() => setView('conversation'), 1500);
+        })
+        .catch(() => setView('conversation'));
+    } else {
+      setView('conversation');
+    }
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -145,13 +195,11 @@ export default function ConversationPage() {
 
       {/* Gradient overlays for depth */}
       <div className="absolute inset-0 pointer-events-none">
-        {/* Top fade */}
-        <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-black via-black/80 to-transparent" />
-        {/* Bottom fade */}
-        <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black via-black/90 to-transparent" />
-        {/* Center vignette */}
-        <div className="absolute inset-0 bg-radial-gradient" style={{
-          background: 'radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.7) 70%, rgba(0,0,0,0.95) 100%)',
+        {/* Bottom fade only — keeps text readable without hiding the globe */}
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/60 to-transparent" />
+        {/* Subtle vignette at edges */}
+        <div className="absolute inset-0" style={{
+          background: 'radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.3) 80%, rgba(0,0,0,0.6) 100%)',
         }} />
         {/* Violet accent glow */}
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-violet-600/[0.06] blur-[100px]" />
@@ -200,7 +248,7 @@ export default function ConversationPage() {
           {SUGGESTIONS.map((s, i) => (
             <button
               key={s.label}
-              onClick={() => startConversation(s.place, s.city)}
+              onClick={() => startConversation(s.place, s.city, s.lng, s.lat)}
               onMouseEnter={() => setFocusedSuggestion(i)}
               onMouseLeave={() => setFocusedSuggestion(null)}
               className={`group/chip px-4 py-2.5 rounded-full border text-sm transition-all duration-300 ${
