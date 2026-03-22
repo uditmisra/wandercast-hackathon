@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Mic, MicOff, Phone, PhoneOff, Loader2, X } from 'lucide-react';
 import type { VoiceMessage } from '@/hooks/useVoiceAgent';
 
@@ -7,6 +7,7 @@ interface VoiceAgentPanelProps {
   isSpeaking: boolean;
   guideName: string | null;
   placeName: string;
+  imageUrl?: string | null;
   error: string | null;
   messages: VoiceMessage[];
   onEnd: () => void;
@@ -14,27 +15,12 @@ interface VoiceAgentPanelProps {
   getOutputByteFrequencyData?: () => Uint8Array | undefined;
 }
 
-/** Fetch a place photo from Unsplash (free, no API key needed for source URLs) */
-function usePlaceImage(placeName: string) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  useEffect(() => {
-    // Unsplash source URL — returns a random photo matching the query, no API key needed
-    const query = encodeURIComponent(placeName);
-    const url = `https://source.unsplash.com/1200x800/?${query},landmark,travel`;
-    // Preload the image
-    const img = new Image();
-    img.onload = () => setImageUrl(url);
-    img.onerror = () => {};
-    img.src = url;
-  }, [placeName]);
-  return imageUrl;
-}
-
 export function VoiceAgentPanel({
   status,
   isSpeaking,
   guideName,
   placeName,
+  imageUrl,
   error,
   messages,
   onEnd,
@@ -44,7 +30,6 @@ export function VoiceAgentPanel({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
   const smoothLevelRef = useRef(0);
-  const bgImage = usePlaceImage(placeName);
 
   // Enhanced orb animation with smooth audio reactivity
   const animate = useCallback(() => {
@@ -173,19 +158,19 @@ export function VoiceAgentPanel({
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center animate-in fade-in duration-500">
-      {/* Place photo backdrop */}
-      {bgImage && (
+      {/* Place photo backdrop (from Firecrawl) */}
+      {imageUrl && (
         <div
           className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000"
           style={{
-            backgroundImage: `url(${bgImage})`,
-            opacity: 0.2,
-            filter: 'blur(20px) saturate(0.5)',
+            backgroundImage: `url(${imageUrl})`,
+            opacity: 0.45,
+            filter: 'blur(12px) saturate(0.7)',
           }}
         />
       )}
-      {/* Dark overlay */}
-      <div className="absolute inset-0 bg-black/80" />
+      {/* Dark overlay — lighter to let the photo show */}
+      <div className="absolute inset-0 bg-black/60" />
 
       {/* Back button */}
       <button

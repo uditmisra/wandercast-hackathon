@@ -47,6 +47,7 @@ export function VoiceAgentWrapper({ place, tourContext, onStart, onClose }: Voic
       isSpeaking={voiceAgent.isSpeaking}
       guideName={voiceAgent.guideName}
       placeName={placeRef.current.name}
+      imageUrl={voiceAgent.imageUrl}
       error={voiceAgent.error}
       messages={messages}
       onEnd={handleEnd}

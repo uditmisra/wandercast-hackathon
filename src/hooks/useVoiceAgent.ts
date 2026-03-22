@@ -42,6 +42,7 @@ interface UseVoiceAgentOptions {
 
 export function useVoiceAgent(options?: UseVoiceAgentOptions) {
   const [guideName, setGuideName] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -83,6 +84,7 @@ export function useVoiceAgent(options?: UseVoiceAgentOptions) {
       }
 
       setGuideName(data.guideName);
+      if (data.imageUrl) setImageUrl(data.imageUrl);
 
       // Start session using the Conversation class directly (no React hook lifecycle issues)
       const session = await Conversation.startSession({
@@ -160,6 +162,7 @@ export function useVoiceAgent(options?: UseVoiceAgentOptions) {
     status,
     isSpeaking,
     guideName,
+    imageUrl,
     error,
     startConversation,
     endConversation,

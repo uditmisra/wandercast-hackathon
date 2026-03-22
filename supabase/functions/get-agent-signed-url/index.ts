@@ -28,8 +28,8 @@ const GUIDES: Record<string, { name: string; personality: string }> = {
   },
 };
 
-async function fetchFirecrawlContext(placeName: string, city: string): Promise<string> {
-  if (!firecrawlApiKey) return '';
+async function fetchFirecrawlContext(placeName: string, city: string): Promise<{ text: string; imageUrl: string | null }> {
+  if (!firecrawlApiKey) return { text: '', imageUrl: null };
 
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 6000);
@@ -53,21 +53,39 @@ async function fetchFirecrawlContext(placeName: string, city: string): Promise<s
       signal: ctrl.signal,
     });
 
-    if (!response.ok) return '';
+    if (!response.ok) return { text: '', imageUrl: null };
 
     const data = await response.json();
     const results = (data.data || []).filter((r: any) => r.markdown && r.markdown.length > 50);
 
-    if (results.length === 0) return '';
+    if (results.length === 0) return { text: '', imageUrl: null };
 
     const sections = results.slice(0, 3).map((r: any) => {
       const title = r.title || 'Source';
       return `[${title}]: ${r.markdown.substring(0, 800)}`;
     });
 
-    return sections.join('\n\n');
+    // Extract first image URL from OG metadata or markdown content
+    let imageUrl: string | null = null;
+    for (const r of results) {
+      const ogImage = r.metadata?.ogImage || r.metadata?.['og:image'];
+      if (ogImage && typeof ogImage === 'string' && ogImage.startsWith('http')) {
+        imageUrl = ogImage;
+        break;
+      }
+      // Fallback: extract first image from markdown
+      if (!imageUrl && r.markdown) {
+        const imgMatch = r.markdown.match(/!\[[^\]]*\]\((https?:\/\/[^)]+)\)/);
+        if (imgMatch) {
+          imageUrl = imgMatch[1];
+          break;
+        }
+      }
+    }
+
+    return { text: sections.join('\n\n'), imageUrl };
   } catch {
-    return '';
+    return { text: '', imageUrl: null };
   } finally {
     clearTimeout(t);
   }
@@ -89,8 +107,9 @@ serve(async (req) => {
     const guide = GUIDES[tone] || GUIDES.casual;
     const interests = tourContext?.interests?.map((i: any) => i.label || i.name).join(', ') || 'general tourism';
 
-    // Fetch fresh web context via Firecrawl
-    const webContext = await fetchFirecrawlContext(currentPlace.name, currentPlace.city || '');
+    // Fetch fresh web context + image via Firecrawl
+    const firecrawl = await fetchFirecrawlContext(currentPlace.name, currentPlace.city || '');
+    const webContext = firecrawl.text;
 
     // Build place knowledge from generated content
     const gc = currentPlace.generatedContent || {};
@@ -146,6 +165,7 @@ HOW TO BE A GREAT CONVERSATIONALIST:
       guideName: guide.name,
       systemPrompt,
       firstMessage,
+      imageUrl: firecrawl.imageUrl,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
