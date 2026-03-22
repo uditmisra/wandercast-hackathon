@@ -1,6 +1,41 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { Mic, MicOff, Phone, PhoneOff, Loader2, X } from 'lucide-react';
 import type { VoiceMessage } from '@/hooks/useVoiceAgent';
+
+/** Fetch place image — try Firecrawl prop first, fallback to Wikipedia. Only one image shown. */
+function usePlaceImage(firecrawlUrl: string | null | undefined, placeName: string) {
+  const [url, setUrl] = useState<string | null>(null);
+  const resolvedRef = useRef(false);
+
+  // If Firecrawl provides one, use it and skip Wikipedia
+  useEffect(() => {
+    if (firecrawlUrl && !resolvedRef.current) {
+      resolvedRef.current = true;
+      setUrl(firecrawlUrl);
+    }
+  }, [firecrawlUrl]);
+
+  // Fetch from Wikipedia only if Firecrawl hasn't provided one after 500ms
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (resolvedRef.current) return;
+      fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(placeName)}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (resolvedRef.current) return;
+          const src = data?.originalimage?.source || data?.thumbnail?.source;
+          if (src) {
+            resolvedRef.current = true;
+            setUrl(src);
+          }
+        })
+        .catch(() => {});
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [placeName]);
+
+  return url;
+}
 
 interface VoiceAgentPanelProps {
   status: 'connecting' | 'connected' | 'disconnected';
@@ -30,6 +65,7 @@ export function VoiceAgentPanel({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
   const smoothLevelRef = useRef(0);
+  const bgImage = usePlaceImage(imageUrl, placeName);
 
   // Enhanced orb animation with smooth audio reactivity
   const animate = useCallback(() => {
@@ -157,94 +193,93 @@ export function VoiceAgentPanel({
   const recentMessages = messages.slice(-3);
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center animate-in fade-in duration-500">
-      {/* Place photo backdrop (from Firecrawl) */}
-      {imageUrl && (
+    <div className="fixed inset-0 z-[60] flex flex-col items-center justify-between py-safe animate-in fade-in duration-500" style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)', paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}>
+      {/* Place photo backdrop */}
+      {bgImage && (
         <div
           className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000"
           style={{
-            backgroundImage: `url(${imageUrl})`,
-            opacity: 0.45,
-            filter: 'blur(12px) saturate(0.7)',
+            backgroundImage: `url(${bgImage})`,
+            opacity: 0.55,
+            filter: 'blur(8px) saturate(0.8) brightness(1.1)',
           }}
         />
       )}
-      {/* Dark overlay — lighter to let the photo show */}
-      <div className="absolute inset-0 bg-black/60" />
+      {/* Dark overlay */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/40 to-black/60" />
 
-      {/* Back button */}
-      <button
-        onClick={onEnd}
-        className="absolute top-6 left-6 p-2.5 rounded-full bg-white/5 hover:bg-white/10 transition-colors z-10 backdrop-blur-sm"
-        aria-label="End conversation"
-      >
-        <X className="w-5 h-5 text-white/60" />
-      </button>
-
-      {/* Guide info */}
-      <div className="relative z-10 text-center mb-4">
-        <p className="text-white/30 text-[11px] uppercase tracking-[0.25em] mb-1.5">Talking to</p>
-        <h2 className="text-white text-xl font-semibold tracking-tight">{guideName || 'Your Guide'}</h2>
-        <p className="text-white/25 text-sm mt-0.5">{placeName}</p>
-      </div>
-
-      {/* Animated orb */}
-      <div className="relative z-10 mb-4">
-        <canvas
-          ref={canvasRef}
-          className="w-[250px] h-[250px] sm:w-[300px] sm:h-[300px]"
-        />
-      </div>
-
-      {/* Status pill */}
-      <div className="relative z-10 flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06]">
-        {statusIcon}
-        <span className={`text-xs font-medium ${error ? 'text-red-400' : 'text-white/50'}`}>
-          {statusText}
-        </span>
-      </div>
-
-      {/* Live captions */}
-      <div className="relative z-10 w-full max-w-md px-6 min-h-[80px] mb-8">
-        {recentMessages.length > 0 && (
-          <div className="space-y-2.5">
-            {recentMessages.map((msg, i) => {
-              const isLatest = i === recentMessages.length - 1;
-              const isAgent = msg.role === 'agent';
-              return (
-                <p
-                  key={msg.timestamp}
-                  className={`text-center leading-relaxed transition-all duration-700 ${
-                    isLatest ? 'opacity-100' : i === recentMessages.length - 2 ? 'opacity-25' : 'opacity-10'
-                  } ${isLatest ? 'text-sm' : 'text-xs'}`}
-                >
-                  {!isAgent && (
-                    <span className="text-violet-400/50 text-[10px] uppercase tracking-wider mr-1.5">You: </span>
-                  )}
-                  <span className={isAgent ? 'text-white/70' : 'text-violet-300/50'}>
-                    {msg.content}
-                  </span>
-                </p>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* End conversation button */}
-      <div className="relative z-10">
+      {/* Top: Back button + guide info */}
+      <div className="relative z-10 w-full px-4 sm:px-6">
         <button
           onClick={onEnd}
-          className="flex items-center gap-2.5 px-8 py-3 rounded-full bg-red-500/80 hover:bg-red-500 text-white text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg shadow-red-500/20"
+          className="absolute left-4 sm:left-6 top-0 p-2.5 rounded-full bg-white/5 hover:bg-white/10 transition-colors backdrop-blur-sm"
+          aria-label="End conversation"
+        >
+          <X className="w-5 h-5 text-white/60" />
+        </button>
+        <div className="text-center pt-1">
+          <p className="text-white/30 text-[10px] sm:text-[11px] uppercase tracking-[0.25em] mb-1">Talking to</p>
+          <h2 className="text-white text-lg sm:text-xl font-semibold tracking-tight">{guideName || 'Your Guide'}</h2>
+          <p className="text-white/25 text-xs sm:text-sm mt-0.5">{placeName}</p>
+        </div>
+      </div>
+
+      {/* Center: Orb + status */}
+      <div className="relative z-10 flex flex-col items-center">
+        <canvas
+          ref={canvasRef}
+          className="w-[200px] h-[200px] sm:w-[280px] sm:h-[280px]"
+        />
+        <div className="flex items-center gap-2 mt-2 px-4 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06]">
+          {statusIcon}
+          <span className={`text-xs font-medium ${error ? 'text-red-400' : 'text-white/50'}`}>
+            {statusText}
+          </span>
+        </div>
+      </div>
+
+      {/* Bottom: Captions + end button */}
+      <div className="relative z-10 w-full flex flex-col items-center px-5 sm:px-6">
+        {/* Live captions */}
+        <div className="w-full max-w-sm min-h-[60px] sm:min-h-[80px] mb-4 sm:mb-6">
+          {recentMessages.length > 0 && (
+            <div className="space-y-1.5 sm:space-y-2.5">
+              {recentMessages.map((msg, i) => {
+                const isLatest = i === recentMessages.length - 1;
+                const isAgent = msg.role === 'agent';
+                return (
+                  <p
+                    key={msg.timestamp}
+                    className={`text-center leading-relaxed transition-all duration-700 ${
+                      isLatest ? 'opacity-100' : i === recentMessages.length - 2 ? 'opacity-25' : 'opacity-10'
+                    } ${isLatest ? 'text-xs sm:text-sm' : 'text-[11px] sm:text-xs'}`}
+                  >
+                    {!isAgent && (
+                      <span className="text-violet-400/50 text-[10px] uppercase tracking-wider mr-1.5">You: </span>
+                    )}
+                    <span className={isAgent ? 'text-white/70' : 'text-violet-300/50'}>
+                      {msg.content}
+                    </span>
+                  </p>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* End button */}
+        <button
+          onClick={onEnd}
+          className="flex items-center gap-2.5 px-7 sm:px-8 py-3 rounded-full bg-red-500/80 hover:bg-red-500 text-white text-sm font-medium transition-all duration-200 active:scale-95 shadow-lg shadow-red-500/20"
         >
           <PhoneOff className="w-4 h-4" />
           End conversation
         </button>
-      </div>
 
-      {/* Attribution */}
-      <div className="absolute bottom-5 z-10 text-white/10 text-[10px] tracking-wider">
-        Powered by ElevenLabs + Firecrawl
+        {/* Attribution */}
+        <p className="mt-4 text-white/10 text-[10px] tracking-wider">
+          Powered by ElevenLabs + Firecrawl
+        </p>
       </div>
     </div>
   );

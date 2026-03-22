@@ -189,71 +189,67 @@ export default function ConversationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center relative overflow-hidden">
+    <div className="h-[100dvh] bg-black flex flex-col items-center justify-center relative overflow-hidden">
       {/* Ambient globe map backdrop */}
       <AmbientMap />
 
       {/* Gradient overlays for depth */}
       <div className="absolute inset-0 pointer-events-none">
-        {/* Bottom fade only — keeps text readable without hiding the globe */}
         <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/60 to-transparent" />
-        {/* Subtle vignette at edges */}
         <div className="absolute inset-0" style={{
           background: 'radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.3) 80%, rgba(0,0,0,0.6) 100%)',
         }} />
-        {/* Violet accent glow */}
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-violet-600/[0.06] blur-[100px]" />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] sm:w-[500px] sm:h-[500px] rounded-full bg-violet-600/[0.06] blur-[100px]" />
       </div>
 
       {/* Content */}
-      <div className="relative z-10 w-full max-w-lg text-center px-6">
+      <div className="relative z-10 w-full max-w-lg text-center px-5 sm:px-6">
         {/* Brand */}
-        <div className="mb-16">
-          <h1 className="font-display text-5xl sm:text-6xl text-white mb-4 tracking-tight drop-shadow-lg">
+        <div className="mb-10 sm:mb-16">
+          <h1 className="font-display text-4xl sm:text-6xl text-white mb-2 sm:mb-4 tracking-tight drop-shadow-lg">
             Wandercast
           </h1>
-          <p className="text-white/40 text-lg sm:text-xl font-light tracking-wide">
+          <p className="text-white/40 text-base sm:text-xl font-light tracking-wide">
             Talk to any place on Earth
           </p>
         </div>
 
         {/* Input */}
-        <form onSubmit={handleSubmit} className="mb-10">
+        <form onSubmit={handleSubmit} className="mb-6 sm:mb-10">
           <div className="relative group">
-            {/* Glow behind input */}
             <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-violet-500/20 via-blue-500/10 to-violet-500/20 opacity-0 group-focus-within:opacity-100 blur-xl transition-opacity duration-500" />
             <div className="relative flex items-center">
-              <MapPin className="absolute left-5 w-5 h-5 text-white/20" />
+              <MapPin className="absolute left-4 sm:left-5 w-5 h-5 text-white/20" />
               <input
                 type="text"
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 placeholder="Where do you want to go?"
                 autoFocus
-                className="w-full rounded-2xl bg-white/[0.06] border border-white/[0.1] text-white text-lg py-4 pl-14 pr-16 placeholder:text-white/20 focus:outline-none focus:border-violet-500/40 focus:bg-white/[0.08] transition-all duration-300 backdrop-blur-sm"
+                className="w-full rounded-2xl bg-white/[0.06] border border-white/[0.1] text-white text-base sm:text-lg py-3.5 sm:py-4 pl-12 sm:pl-14 pr-14 sm:pr-16 placeholder:text-white/20 focus:outline-none focus:border-violet-500/40 focus:bg-white/[0.08] transition-all duration-300 backdrop-blur-sm"
               />
               <button
                 type="submit"
                 disabled={!input.trim()}
-                className="absolute right-2.5 w-11 h-11 rounded-xl bg-violet-500 hover:bg-violet-400 disabled:bg-white/[0.06] disabled:border disabled:border-white/[0.06] disabled:cursor-not-allowed flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg shadow-violet-500/25 disabled:shadow-none"
+                className="absolute right-2 sm:right-2.5 w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-violet-500 hover:bg-violet-400 disabled:bg-white/[0.06] disabled:border disabled:border-white/[0.06] disabled:cursor-not-allowed flex items-center justify-center transition-all duration-200 active:scale-95 shadow-lg shadow-violet-500/25 disabled:shadow-none"
               >
-                <Phone className="w-4.5 h-4.5 text-white" />
+                <Phone className="w-4 h-4 text-white" />
               </button>
             </div>
           </div>
         </form>
 
         {/* Suggestion chips */}
-        <div className="flex flex-wrap justify-center gap-2.5">
+        <div className="flex flex-wrap justify-center gap-2">
           {SUGGESTIONS.map((s, i) => (
             <button
               key={s.label}
               onClick={() => startConversation(s.place, s.city, s.lng, s.lat)}
               onMouseEnter={() => setFocusedSuggestion(i)}
               onMouseLeave={() => setFocusedSuggestion(null)}
-              className={`group/chip px-4 py-2.5 rounded-full border text-sm transition-all duration-300 ${
+              className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-full border text-xs sm:text-sm transition-all duration-300 active:scale-95 ${
                 focusedSuggestion === i
-                  ? 'bg-violet-500/15 border-violet-500/30 text-white/80 scale-105'
+                  ? 'bg-violet-500/15 border-violet-500/30 text-white/80'
                   : 'bg-white/[0.03] border-white/[0.06] text-white/40 hover:bg-white/[0.06] hover:text-white/60 hover:border-white/[0.12]'
               }`}
             >
@@ -269,7 +265,7 @@ export default function ConversationPage() {
       </div>
 
       {/* Attribution */}
-      <div className="absolute bottom-6 text-white/10 text-xs tracking-wider">
+      <div className="absolute bottom-4 sm:bottom-6 text-white/10 text-[10px] sm:text-xs tracking-wider" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         Powered by ElevenLabs + Firecrawl
       </div>
     </div>
