@@ -206,10 +206,10 @@ export default function ConversationPage() {
       <div className="relative z-10 w-full max-w-lg text-center px-5 sm:px-6">
         {/* Brand */}
         <div className="mb-10 sm:mb-16">
-          <h1 className="font-display text-4xl sm:text-6xl text-white mb-2 sm:mb-4 tracking-tight drop-shadow-lg">
+          <h1 className="font-display text-4xl sm:text-6xl text-white mb-2 sm:mb-4 tracking-tight" style={{ textShadow: '0 2px 20px rgba(0,0,0,0.8), 0 0 40px rgba(0,0,0,0.5)' }}>
             Wandercast
           </h1>
-          <p className="text-white/40 text-base sm:text-xl font-light tracking-wide">
+          <p className="text-white/70 text-base sm:text-xl font-light tracking-wide" style={{ textShadow: '0 1px 10px rgba(0,0,0,0.8)' }}>
             Talk to any place on Earth
           </p>
         </div>
@@ -219,14 +219,14 @@ export default function ConversationPage() {
           <div className="relative group">
             <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-violet-500/20 via-blue-500/10 to-violet-500/20 opacity-0 group-focus-within:opacity-100 blur-xl transition-opacity duration-500" />
             <div className="relative flex items-center">
-              <MapPin className="absolute left-4 sm:left-5 w-5 h-5 text-white/20" />
+              <MapPin className="absolute left-4 sm:left-5 w-5 h-5 text-white/40" />
               <input
                 type="text"
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 placeholder="Where do you want to go?"
                 autoFocus
-                className="w-full rounded-2xl bg-white/[0.06] border border-white/[0.1] text-white text-base sm:text-lg py-3.5 sm:py-4 pl-12 sm:pl-14 pr-14 sm:pr-16 placeholder:text-white/20 focus:outline-none focus:border-violet-500/40 focus:bg-white/[0.08] transition-all duration-300 backdrop-blur-sm"
+                className="w-full rounded-2xl bg-black/60 border border-white/20 text-white text-base sm:text-lg py-3.5 sm:py-4 pl-12 sm:pl-14 pr-14 sm:pr-16 placeholder:text-white/50 focus:outline-none focus:border-violet-500/50 focus:bg-black/70 transition-all duration-300 backdrop-blur-xl shadow-lg shadow-black/30"
               />
               <button
                 type="submit"
@@ -247,15 +247,15 @@ export default function ConversationPage() {
               onClick={() => startConversation(s.place, s.city, s.lng, s.lat)}
               onMouseEnter={() => setFocusedSuggestion(i)}
               onMouseLeave={() => setFocusedSuggestion(null)}
-              className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-full border text-xs sm:text-sm transition-all duration-300 active:scale-95 ${
+              className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-full border text-xs sm:text-sm font-medium transition-all duration-300 active:scale-95 backdrop-blur-xl shadow-lg shadow-black/30 ${
                 focusedSuggestion === i
-                  ? 'bg-violet-500/15 border-violet-500/30 text-white/80'
-                  : 'bg-white/[0.03] border-white/[0.06] text-white/40 hover:bg-white/[0.06] hover:text-white/60 hover:border-white/[0.12]'
+                  ? 'bg-violet-500/30 border-violet-400/50 text-white'
+                  : 'bg-black/60 border-white/20 text-white/90 hover:bg-black/70 hover:text-white hover:border-white/30'
               }`}
             >
               <span className="inline-flex items-center gap-1.5">
                 <MapPin className={`w-3 h-3 transition-colors duration-300 ${
-                  focusedSuggestion === i ? 'text-violet-400' : 'text-white/20'
+                  focusedSuggestion === i ? 'text-violet-400' : 'text-white/40'
                 }`} />
                 {s.label}
               </span>
